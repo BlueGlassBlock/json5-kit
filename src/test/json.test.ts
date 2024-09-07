@@ -177,6 +177,10 @@ suite('JSON', () => {
 		assertScanError('"\t"', ScanError.InvalidCharacter, SyntaxKind.StringLiteral);
 		assertScanError('"\t "', ScanError.InvalidCharacter, SyntaxKind.StringLiteral);
 		assertScanError('"\0 "', ScanError.InvalidCharacter, SyntaxKind.StringLiteral);
+
+		// JSON5 Strings
+		assertKinds('\'foo\'', SyntaxKind.StringLiteral);
+		assertKinds('\'f\\\'oo\'', SyntaxKind.StringLiteral);
 	});
 
 	test('numbers', () => {
@@ -199,9 +203,26 @@ suite('JSON', () => {
 		assertKinds('01', SyntaxKind.NumericLiteral, SyntaxKind.NumericLiteral);
 		assertKinds('-01', SyntaxKind.NumericLiteral, SyntaxKind.NumericLiteral);
 
+		// JSON5 compatibility
+		assertKinds('.0', SyntaxKind.NumericLiteral);
+		assertKinds('0.', SyntaxKind.NumericLiteral);
+		assertKinds('.3e-3', SyntaxKind.NumericLiteral);
+		assertKinds('3123.', SyntaxKind.NumericLiteral);
+		assertKinds('0xdeadbeef', SyntaxKind.NumericLiteral);
+		assertKinds('+1', SyntaxKind.NumericLiteral);
+		assertKinds('Infinity', SyntaxKind.NumericLiteral);
+		assertKinds('+Infinity', SyntaxKind.NumericLiteral);
+		assertKinds('-Infinity', SyntaxKind.NumericLiteral);
+		assertKinds('NaN', SyntaxKind.NumericLiteral);
+		assertKinds('+NaN', SyntaxKind.NumericLiteral);
+		assertKinds('-NaN', SyntaxKind.NumericLiteral);
+		
+
 		// unexpected end
 		assertKinds('-', SyntaxKind.Unknown);
-		assertKinds('.0', SyntaxKind.Unknown);
+		assertKinds('+', SyntaxKind.Unknown);
+		assertKinds('Inf', SyntaxKind.Unknown);
+		assertKinds('0x', SyntaxKind.Unknown);
 	});
 
 	test('keywords: true, false, null', () => {

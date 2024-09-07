@@ -59,24 +59,20 @@ export function createScanner(text: string, ignoreTrivia: boolean = false): JSON
 
 	function scanNumber(): string {
 		let start = pos;
-		if (text.charCodeAt(pos) === CharacterCodes._0) {
-			pos++;
-		} else {
-			pos++;
-			while (pos < text.length && isDigit(text.charCodeAt(pos))) {
+		if (text.charCodeAt(pos) !== CharacterCodes.dot) {
+			if (text.charCodeAt(pos) === CharacterCodes._0) {
 				pos++;
-			}
-		}
-		if (pos < text.length && text.charCodeAt(pos) === CharacterCodes.dot) {
-			pos++;
-			if (pos < text.length && isDigit(text.charCodeAt(pos))) {
+			} else {
 				pos++;
 				while (pos < text.length && isDigit(text.charCodeAt(pos))) {
 					pos++;
 				}
-			} else {
-				scanError = ScanError.UnexpectedEndOfNumber;
-				return text.substring(start, pos);
+			}
+		}
+		if (pos < text.length && text.charCodeAt(pos) === CharacterCodes.dot) {
+			pos++;
+			while (pos < text.length && isDigit(text.charCodeAt(pos))) {
+				pos++;
 			}
 		}
 		let end = pos;
@@ -98,7 +94,7 @@ export function createScanner(text: string, ignoreTrivia: boolean = false): JSON
 		return text.substring(start, end);
 	}
 
-	function scanString(): string {
+	function scanString(code: number): string {
 
 		let result = '',
 			start = pos;
@@ -110,7 +106,7 @@ export function createScanner(text: string, ignoreTrivia: boolean = false): JSON
 				break;
 			}
 			const ch = text.charCodeAt(pos);
-			if (ch === CharacterCodes.doubleQuote) {
+			if (ch === code) {
 				result += text.substring(start, pos);
 				pos++;
 				break;
@@ -124,6 +120,9 @@ export function createScanner(text: string, ignoreTrivia: boolean = false): JSON
 				}
 				const ch2 = text.charCodeAt(pos++);
 				switch (ch2) {
+					case CharacterCodes.singleQuote:
+						result += '\'';
+						break;
 					case CharacterCodes.doubleQuote:
 						result += '\"';
 						break;
@@ -239,9 +238,10 @@ export function createScanner(text: string, ignoreTrivia: boolean = false): JSON
 				return token = SyntaxKind.CommaToken;
 
 			// strings
+			case CharacterCodes.singleQuote:
 			case CharacterCodes.doubleQuote:
 				pos++;
-				value = scanString();
+				value = scanString(code);
 				return token = SyntaxKind.StringLiteral;
 
 			// comments
@@ -303,16 +303,56 @@ export function createScanner(text: string, ignoreTrivia: boolean = false): JSON
 				return token = SyntaxKind.Unknown;
 
 			// numbers
+			case CharacterCodes.plus:
 			case CharacterCodes.minus:
 				value += String.fromCharCode(code);
 				pos++;
-				if (pos === len || !isDigit(text.charCodeAt(pos))) {
+				if (pos === len) {
 					return token = SyntaxKind.Unknown;
 				}
-			// found a minus, followed by a number so
+				if (text.charCodeAt(pos) === CharacterCodes.I
+					&& pos + 8 <= len
+					&& text.substring(pos, pos + 8) === 'Infinity') {
+					value += 'Infinity';
+					pos += 8;
+					return token = SyntaxKind.NumericLiteral;
+				}
+				if (text.charCodeAt(pos) === CharacterCodes.N
+					&& pos + 3 <= len
+					&& text.substring(pos, pos + 3) === 'NaN') {
+					value += 'NaN';
+					pos += 3;
+					return token = SyntaxKind.NumericLiteral;
+				}
+				else if (!isDigit(text.charCodeAt(pos)) && text.charCodeAt(pos) !== CharacterCodes.dot) {
+					return token = SyntaxKind.Unknown;
+				}
+			// found a sign, followed by a number so
 			// we fall through to proceed with scanning
 			// numbers
+
 			case CharacterCodes._0:
+				// 0 may lead to a hexadecimal number
+				pos++;
+				if (text.charCodeAt(pos) === CharacterCodes.x || text.charCodeAt(pos) === CharacterCodes.X) {
+					value += '0';
+					value += String.fromCharCode(code);
+					pos++;
+					if (pos === len ||
+						!(isDigit(text.charCodeAt(pos)) ||
+							(text.charCodeAt(pos) >= CharacterCodes.A && text.charCodeAt(pos) <= CharacterCodes.F) ||
+							(text.charCodeAt(pos) >= CharacterCodes.a && text.charCodeAt(pos) <= CharacterCodes.f))) {
+						return token = SyntaxKind.Unknown;
+					}
+					while (pos < len &&
+						(isDigit(text.charCodeAt(pos))
+							|| (text.charCodeAt(pos) >= CharacterCodes.A && text.charCodeAt(pos) <= CharacterCodes.F)
+							|| (text.charCodeAt(pos) >= CharacterCodes.a && text.charCodeAt(pos) <= CharacterCodes.f))) {
+						pos++;
+					}
+					return token = SyntaxKind.NumericLiteral;
+				}
+				pos--; // Backtrace
 			case CharacterCodes._1:
 			case CharacterCodes._2:
 			case CharacterCodes._3:
@@ -322,6 +362,7 @@ export function createScanner(text: string, ignoreTrivia: boolean = false): JSON
 			case CharacterCodes._7:
 			case CharacterCodes._8:
 			case CharacterCodes._9:
+			case CharacterCodes.dot:
 				value += scanNumber();
 				return token = SyntaxKind.NumericLiteral;
 			// literals and unknown symbols
@@ -333,11 +374,14 @@ export function createScanner(text: string, ignoreTrivia: boolean = false): JSON
 				}
 				if (tokenOffset !== pos) {
 					value = text.substring(tokenOffset, pos);
-					// keywords: true, false, null
+					// keywords: true, false, null, 
+					// numerics: Infinity, NaN
 					switch (value) {
 						case 'true': return token = SyntaxKind.TrueKeyword;
 						case 'false': return token = SyntaxKind.FalseKeyword;
 						case 'null': return token = SyntaxKind.NullKeyword;
+						case 'Infinity': return token = SyntaxKind.NumericLiteral;
+						case 'NaN': return token = SyntaxKind.NumericLiteral;
 					}
 					return token = SyntaxKind.Unknown;
 				}
@@ -479,6 +523,7 @@ const enum CharacterCodes {
 	colon = 0x3A,                 // :
 	comma = 0x2C,                 // ,
 	dot = 0x2E,                   // .
+	singleQuote = 0x27,           // '
 	doubleQuote = 0x22,           // "
 	minus = 0x2D,                 // -
 	openBrace = 0x7B,             // {
