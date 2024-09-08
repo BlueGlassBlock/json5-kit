@@ -286,6 +286,11 @@ suite('JSON', () => {
 		assertValidParse('{ "hello": { "again": { "inside": 5 }, "world": 1 }}', { hello: { again: { inside: 5 }, world: 1 } });
 		assertValidParse('{ "foo": /*hello*/true }', { foo: true });
 		assertValidParse('{ "": true }', { '': true });
+
+		// JSON5 objects
+		assertValidParse('{ foo: "bar" }', { foo: 'bar' });
+		assertValidParse('{ foo: \'bar\', }', { foo: 'bar' }, { allowTrailingComma: true });
+		assertValidParse('{ foo1: \'bar\', xoo: "foo" }', { foo1: 'bar', xoo: 'foo' });
 	});
 
 	test('parse: arrays', () => {

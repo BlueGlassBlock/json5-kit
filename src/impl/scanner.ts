@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
+import * as unicode from './unicode';
 import { ScanError, SyntaxKind, JSONScanner } from '../main';
 
 /**
@@ -94,7 +95,7 @@ export function createScanner(text: string, ignoreTrivia: boolean = false): JSON
 		return text.substring(start, end);
 	}
 
-	function scanString(code: number): string {
+	function scanStringLike(breakCondition: (ch: number) => boolean, skipEnd: boolean = true, reportEOS: boolean = true): string {
 
 		let result = '',
 			start = pos;
@@ -102,13 +103,17 @@ export function createScanner(text: string, ignoreTrivia: boolean = false): JSON
 		while (true) {
 			if (pos >= len) {
 				result += text.substring(start, pos);
-				scanError = ScanError.UnexpectedEndOfString;
+				if (reportEOS) {
+					scanError = ScanError.UnexpectedEndOfString;
+				}
 				break;
 			}
 			const ch = text.charCodeAt(pos);
-			if (ch === code) {
+			if (breakCondition(ch)) {
 				result += text.substring(start, pos);
-				pos++;
+				if (skipEnd) {
+					pos++;
+				}
 				break;
 			}
 			if (ch === CharacterCodes.backslash) {
@@ -190,7 +195,6 @@ export function createScanner(text: string, ignoreTrivia: boolean = false): JSON
 			tokenOffset = len;
 			return token = SyntaxKind.EOF;
 		}
-
 		let code = text.charCodeAt(pos);
 		// trivia: whitespace
 		if (isWhiteSpace(code)) {
@@ -241,7 +245,7 @@ export function createScanner(text: string, ignoreTrivia: boolean = false): JSON
 			case CharacterCodes.singleQuote:
 			case CharacterCodes.doubleQuote:
 				pos++;
-				value = scanString(code);
+				value = scanStringLike((ch) => ch === code);
 				return token = SyntaxKind.StringLiteral;
 
 			// comments
@@ -368,26 +372,16 @@ export function createScanner(text: string, ignoreTrivia: boolean = false): JSON
 			// literals and unknown symbols
 			default:
 				// is a literal? Read the full word.
-				while (pos < len && isUnknownContentCharacter(code)) {
-					pos++;
-					code = text.charCodeAt(pos);
+				value = scanStringLike((ch) => !isUnknownContentCharacter(ch), false, false);
+				// keywords: true, false, null, 
+				// numerics: Infinity, NaN
+				switch (value) {
+					case 'true': return token = SyntaxKind.TrueKeyword;
+					case 'false': return token = SyntaxKind.FalseKeyword;
+					case 'null': return token = SyntaxKind.NullKeyword;
+					case 'Infinity': return token = SyntaxKind.NumericLiteral;
+					case 'NaN': return token = SyntaxKind.NumericLiteral;
 				}
-				if (tokenOffset !== pos) {
-					value = text.substring(tokenOffset, pos);
-					// keywords: true, false, null, 
-					// numerics: Infinity, NaN
-					switch (value) {
-						case 'true': return token = SyntaxKind.TrueKeyword;
-						case 'false': return token = SyntaxKind.FalseKeyword;
-						case 'null': return token = SyntaxKind.NullKeyword;
-						case 'Infinity': return token = SyntaxKind.NumericLiteral;
-						case 'NaN': return token = SyntaxKind.NumericLiteral;
-					}
-					return token = SyntaxKind.Unknown;
-				}
-				// some
-				value += String.fromCharCode(code);
-				pos++;
 				return token = SyntaxKind.Unknown;
 		}
 	}
@@ -434,11 +428,21 @@ export function createScanner(text: string, ignoreTrivia: boolean = false): JSON
 }
 
 function isWhiteSpace(ch: number): boolean {
-	return ch === CharacterCodes.space || ch === CharacterCodes.tab;
+	return ch === CharacterCodes.space
+		|| ch === CharacterCodes.tab
+		|| ch === CharacterCodes.verticalTab
+		|| ch === CharacterCodes.formFeed
+		|| ch === CharacterCodes.nonBreakingSPace
+		|| ch === CharacterCodes.byteOrderMark
+		|| unicode.Space_Separator.test(String.fromCharCode(ch));
+
 }
 
 function isLineBreak(ch: number): boolean {
-	return ch === CharacterCodes.lineFeed || ch === CharacterCodes.carriageReturn;
+	return ch === CharacterCodes.lineFeed
+		|| ch === CharacterCodes.carriageReturn
+		|| ch === CharacterCodes.lineSeparator
+		|| ch === CharacterCodes.paragraphSeparator;
 }
 
 function isDigit(ch: number): boolean {
@@ -533,4 +537,9 @@ const enum CharacterCodes {
 
 	formFeed = 0x0C,              // \f
 	tab = 0x09,                   // \t
+	verticalTab = 0x0B,             // \v
+	nonBreakingSPace = 0xA0,
+	byteOrderMark = 0xFEFF,
+	lineSeparator = 0x2028,
+	paragraphSeparator = 0x2029,
 }

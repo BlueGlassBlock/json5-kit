@@ -5,6 +5,7 @@
 'use strict';
 
 import { createScanner } from './scanner';
+import * as unicode from './unicode';
 import {
 	JSONPath,
 	JSONVisitor,
@@ -435,7 +436,7 @@ export function visit(text: string, visitor: JSONVisitor, options: ParseOptions 
 
 	const disallowComments = options && options.disallowComments;
 	const allowTrailingComma = options && options.allowTrailingComma;
-	function scanNext(): SyntaxKind {
+	function scanNext(allowUnknownLiteral: boolean = false): SyntaxKind {
 		while (true) {
 			const token = _scanner.scan();
 			switch (_scanner.getTokenError()) {
@@ -470,6 +471,9 @@ export function visit(text: string, visitor: JSONVisitor, options: ParseOptions 
 					}
 					break;
 				case SyntaxKind.Unknown:
+					if (allowUnknownLiteral) {
+						return token;
+					}
 					handleError(ParseErrorCode.InvalidSymbol);
 					break;
 				case SyntaxKind.Trivia:
@@ -516,10 +520,11 @@ export function visit(text: string, visitor: JSONVisitor, options: ParseOptions 
 				const tokenValue = _scanner.getTokenValue();
 				let value = Number(tokenValue);
 
-				if (isNaN(value)) {
-					handleError(ParseErrorCode.InvalidNumberFormat);
-					value = 0;
-				}
+				// JSON5 allows NaN
+				// if (isNaN(value)) {
+				// 	handleError(ParseErrorCode.InvalidNumberFormat);
+				// 	value = 0;
+				// }
 
 				onLiteralValue(value);
 				break;
@@ -541,8 +546,24 @@ export function visit(text: string, visitor: JSONVisitor, options: ParseOptions 
 
 	function parseProperty(): boolean {
 		if (_scanner.getToken() !== SyntaxKind.StringLiteral) {
-			handleError(ParseErrorCode.PropertyNameExpected, [], [SyntaxKind.CloseBraceToken, SyntaxKind.CommaToken]);
-			return false;
+			if (_scanner.getToken() !== SyntaxKind.Unknown) {
+				handleError(ParseErrorCode.PropertyNameExpected, [], [SyntaxKind.CloseBraceToken, SyntaxKind.CommaToken]);
+				return false;
+			}
+			// Probably an unquoted property
+			// Check whether this token complies to IdentifierName
+			const value = _scanner.getTokenValue();
+			if (value.length === 0 || !unicode.ID_Start.test(value[0])) {
+				handleError(ParseErrorCode.PropertyNameExpected, [], [SyntaxKind.CloseBraceToken, SyntaxKind.CommaToken]);
+				return false;
+			}
+			// test rest against ID_Continue
+			for (let i = 1; i < value.length; i++) {
+				if (!unicode.ID_Continue.test(value[i])) {
+					handleError(ParseErrorCode.PropertyNameExpected, [], [SyntaxKind.CloseBraceToken, SyntaxKind.CommaToken]);
+					return false;
+				}
+			}
 		}
 		parseString(false);
 		if (_scanner.getToken() === SyntaxKind.ColonToken) {
@@ -561,7 +582,7 @@ export function visit(text: string, visitor: JSONVisitor, options: ParseOptions 
 
 	function parseObject(): boolean {
 		onObjectBegin();
-		scanNext(); // consume open brace
+		scanNext(true); // consume open brace
 
 		let needsComma = false;
 		while (_scanner.getToken() !== SyntaxKind.CloseBraceToken && _scanner.getToken() !== SyntaxKind.EOF) {
@@ -570,7 +591,7 @@ export function visit(text: string, visitor: JSONVisitor, options: ParseOptions 
 					handleError(ParseErrorCode.ValueExpected, [], []);
 				}
 				onSeparator(',');
-				scanNext(); // consume comma
+				scanNext(true); // consume comma
 				if (_scanner.getToken() === SyntaxKind.CloseBraceToken && allowTrailingComma) {
 					break;
 				}
