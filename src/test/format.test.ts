@@ -737,4 +737,28 @@ suite('JSON - formatter', () => {
 
 		format(content, expected, true, false, true);
 	});
+
+	test('JSON5 objects with comments', () => { // TODO: formalize all string keys
+		const content = [
+			'{',
+			'// comment',
+			'\'a\': 1,',
+			'/* comment */',
+			'"b" : 2',
+			'c: 3',
+			'}'
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  // comment',
+			'  \'a\': 1,',
+			'  /* comment */',
+			'  "b": 2',
+			'  c: 3',
+			'}'
+		].join('\n');
+
+		format(content, expected, true, false, true);
+	});
 });

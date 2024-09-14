@@ -21,9 +21,7 @@ import {
 } from '../main';
 
 namespace ParseOptions {
-	export const DEFAULT = {
-		allowTrailingComma: false
-	};
+	export const DEFAULT = {};
 }
 
 interface NodeImpl extends Node {
@@ -434,9 +432,7 @@ export function visit(text: string, visitor: JSONVisitor, options: ParseOptions 
 		onComment = toNoArgVisit(visitor.onComment),
 		onError = toOneArgVisit(visitor.onError);
 
-	const disallowComments = options && options.disallowComments;
-	const allowTrailingComma = options && options.allowTrailingComma;
-	function scanNext(allowUnknownLiteral: boolean = false): SyntaxKind {
+	function scanNext(allowIdent: boolean = false): SyntaxKind {
 		while (true) {
 			const token = _scanner.scan();
 			switch (_scanner.getTokenError()) {
@@ -450,9 +446,7 @@ export function visit(text: string, visitor: JSONVisitor, options: ParseOptions 
 					handleError(ParseErrorCode.UnexpectedEndOfNumber);
 					break;
 				case ScanError.UnexpectedEndOfComment:
-					if (!disallowComments) {
-						handleError(ParseErrorCode.UnexpectedEndOfComment);
-					}
+					handleError(ParseErrorCode.UnexpectedEndOfComment);
 					break;
 				case ScanError.UnexpectedEndOfString:
 					handleError(ParseErrorCode.UnexpectedEndOfString);
@@ -464,16 +458,13 @@ export function visit(text: string, visitor: JSONVisitor, options: ParseOptions 
 			switch (token) {
 				case SyntaxKind.LineCommentTrivia:
 				case SyntaxKind.BlockCommentTrivia:
-					if (disallowComments) {
-						handleError(ParseErrorCode.InvalidCommentToken);
-					} else {
-						onComment();
-					}
+					onComment();
 					break;
-				case SyntaxKind.Unknown:
-					if (allowUnknownLiteral) {
+				case SyntaxKind.PossibleIdentifier:
+					if (allowIdent) {
 						return token;
 					}
+				case SyntaxKind.Unknown:
 					handleError(ParseErrorCode.InvalidSymbol);
 					break;
 				case SyntaxKind.Trivia:
@@ -545,25 +536,10 @@ export function visit(text: string, visitor: JSONVisitor, options: ParseOptions 
 	}
 
 	function parseProperty(): boolean {
-		if (_scanner.getToken() !== SyntaxKind.StringLiteral) {
-			if (_scanner.getToken() !== SyntaxKind.Unknown) {
-				handleError(ParseErrorCode.PropertyNameExpected, [], [SyntaxKind.CloseBraceToken, SyntaxKind.CommaToken]);
-				return false;
-			}
-			// Probably an unquoted property
-			// Check whether this token complies to IdentifierName
-			const value = _scanner.getTokenValue();
-			if (value.length === 0 || !unicode.ID_Start.test(value[0])) {
-				handleError(ParseErrorCode.PropertyNameExpected, [], [SyntaxKind.CloseBraceToken, SyntaxKind.CommaToken]);
-				return false;
-			}
-			// test rest against ID_Continue
-			for (let i = 1; i < value.length; i++) {
-				if (!unicode.ID_Continue.test(value[i])) {
-					handleError(ParseErrorCode.PropertyNameExpected, [], [SyntaxKind.CloseBraceToken, SyntaxKind.CommaToken]);
-					return false;
-				}
-			}
+		if (_scanner.getToken() !== SyntaxKind.StringLiteral
+			&& _scanner.getToken() !== SyntaxKind.PossibleIdentifier) {
+			handleError(ParseErrorCode.PropertyNameExpected, [], [SyntaxKind.CloseBraceToken, SyntaxKind.CommaToken]);
+			return false;
 		}
 		parseString(false);
 		if (_scanner.getToken() === SyntaxKind.ColonToken) {
@@ -592,7 +568,7 @@ export function visit(text: string, visitor: JSONVisitor, options: ParseOptions 
 				}
 				onSeparator(',');
 				scanNext(true); // consume comma
-				if (_scanner.getToken() === SyntaxKind.CloseBraceToken && allowTrailingComma) {
+				if (_scanner.getToken() === SyntaxKind.CloseBraceToken) {
 					break;
 				}
 			} else if (needsComma) {
@@ -625,7 +601,7 @@ export function visit(text: string, visitor: JSONVisitor, options: ParseOptions 
 				}
 				onSeparator(',');
 				scanNext(); // consume comma
-				if (_scanner.getToken() === SyntaxKind.CloseBracketToken && allowTrailingComma) {
+				if (_scanner.getToken() === SyntaxKind.CloseBracketToken) {
 					break;
 				}
 			} else if (needsComma) {

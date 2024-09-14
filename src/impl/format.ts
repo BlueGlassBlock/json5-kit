@@ -172,12 +172,18 @@ export function format(documentText: string, range: Range | undefined, options: 
 						replaceContent = cachedSpaces[1];
 					}
 					break;
+				case SyntaxKind.PossibleIdentifier:
+					if (secondToken !== SyntaxKind.ColonToken) {
+						hasError = true;
+					}
+					break;
 				case SyntaxKind.StringLiteral:
 					if (options.keepLines && numberLineBreaks > 0) {
 						replaceContent = newLinesAndIndent();
 					} else if (secondToken === SyntaxKind.ColonToken && !needsLineBreak) {
 						replaceContent = '';
 					}
+				
 					break;
 				case SyntaxKind.NullKeyword:
 				case SyntaxKind.TrueKeyword:

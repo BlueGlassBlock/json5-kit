@@ -382,6 +382,14 @@ export function createScanner(text: string, ignoreTrivia: boolean = false): JSON
 					case 'Infinity': return token = SyntaxKind.NumericLiteral;
 					case 'NaN': return token = SyntaxKind.NumericLiteral;
 				}
+				if (value.length && unicode.ID_Start.test(value[0])) {
+					for (let i = 1; i < value.length; i++) {
+						if (!unicode.ID_Continue.test(value[i])) {
+							return token = SyntaxKind.Unknown;
+						}
+					}
+					return token = SyntaxKind.PossibleIdentifier;
+				}
 				return token = SyntaxKind.Unknown;
 		}
 	}

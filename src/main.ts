@@ -42,7 +42,8 @@ export const enum SyntaxKind {
 	LineBreakTrivia = 14,
 	Trivia = 15,
 	Unknown = 16,
-	EOF = 17
+	EOF = 17,
+	PossibleIdentifier = 18,
 }
 
 /**
@@ -156,13 +157,12 @@ export const enum ParseErrorCode {
 	CloseBraceExpected = 7,
 	CloseBracketExpected = 8,
 	EndOfFileExpected = 9,
-	InvalidCommentToken = 10,
-	UnexpectedEndOfComment = 11,
-	UnexpectedEndOfString = 12,
-	UnexpectedEndOfNumber = 13,
-	InvalidUnicode = 14,
-	InvalidEscapeCharacter = 15,
-	InvalidCharacter = 16
+	UnexpectedEndOfComment = 10,
+	UnexpectedEndOfString = 11,
+	UnexpectedEndOfNumber = 12,
+	InvalidUnicode = 13,
+	InvalidEscapeCharacter = 14,
+	InvalidCharacter = 15
 }
 
 export function printParseErrorCode(code: ParseErrorCode) {
@@ -175,7 +175,6 @@ export function printParseErrorCode(code: ParseErrorCode) {
 		case ParseErrorCode.CloseBraceExpected: return 'CloseBraceExpected';
 		case ParseErrorCode.CloseBracketExpected: return 'CloseBracketExpected';
 		case ParseErrorCode.EndOfFileExpected: return 'EndOfFileExpected';
-		case ParseErrorCode.InvalidCommentToken: return 'InvalidCommentToken';
 		case ParseErrorCode.UnexpectedEndOfComment: return 'UnexpectedEndOfComment';
 		case ParseErrorCode.UnexpectedEndOfString: return 'UnexpectedEndOfString';
 		case ParseErrorCode.UnexpectedEndOfNumber: return 'UnexpectedEndOfNumber';
@@ -228,8 +227,6 @@ export interface Location {
 }
 
 export interface ParseOptions {
-	disallowComments?: boolean;
-	allowTrailingComma?: boolean;
 	allowEmptyContent?: boolean;
 }
 

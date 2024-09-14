@@ -79,7 +79,7 @@ interface VisitorError extends ParseError {
 	startCharacter: number;
 }
 
-function assertVisit(input: string, expected: VisitorCallback[], expectedErrors: VisitorError[] = [], disallowComments = false, stopOffsets?: number[]): void {
+function assertVisit(input: string, expected: VisitorCallback[], expectedErrors: VisitorError[] = [], stopOffsets?: number[]): void {
 	let errors: VisitorError[] = [];
 	let actuals: VisitorCallback[] = [];
 	let noArgHandler = (id: keyof JSONVisitor) => (offset: number, length: number, startLine: number, startCharacter: number) => actuals.push({ id, text: input.substr(offset, length), startLine, startCharacter });
@@ -98,8 +98,6 @@ function assertVisit(input: string, expected: VisitorCallback[], expectedErrors:
 		onError: (error: ParseErrorCode, offset: number, length: number, startLine: number, startCharacter: number) => {
 			errors.push({ error, offset, length, startLine, startCharacter });
 		}
-	}, {
-		disallowComments
 	});
 	assert.deepStrictEqual(errors, expectedErrors);
 	assert.deepStrictEqual(actuals, expected, JSON.stringify(actuals));
@@ -153,7 +151,7 @@ suite('JSON', () => {
 		assertScanError('/* this is a \ncomment', ScanError.UnexpectedEndOfComment, SyntaxKind.BlockCommentTrivia);
 
 		// broken comment
-		assertKinds('/ ttt', SyntaxKind.Unknown, SyntaxKind.Trivia, SyntaxKind.Unknown);
+		assertKinds('/ ttt', SyntaxKind.Unknown, SyntaxKind.Trivia, SyntaxKind.PossibleIdentifier);
 	});
 
 	test('strings', () => {
@@ -221,8 +219,8 @@ suite('JSON', () => {
 		// unexpected end
 		assertKinds('-', SyntaxKind.Unknown);
 		assertKinds('+', SyntaxKind.Unknown);
-		assertKinds('Inf', SyntaxKind.Unknown);
 		assertKinds('0x', SyntaxKind.Unknown);
+		assertKinds('Inf', SyntaxKind.PossibleIdentifier);
 	});
 
 	test('keywords: true, false, null', () => {
@@ -239,10 +237,10 @@ suite('JSON', () => {
 			SyntaxKind.NullKeyword);
 
 		// invalid words
-		assertKinds('nulllll', SyntaxKind.Unknown);
-		assertKinds('True', SyntaxKind.Unknown);
+		assertKinds('nulllll', SyntaxKind.PossibleIdentifier);
+		assertKinds('True', SyntaxKind.PossibleIdentifier);
 		assertKinds('foo-bar', SyntaxKind.Unknown);
-		assertKinds('foo bar', SyntaxKind.Unknown, SyntaxKind.Trivia, SyntaxKind.Unknown);
+		assertKinds('foo bar', SyntaxKind.PossibleIdentifier, SyntaxKind.Trivia, SyntaxKind.PossibleIdentifier);
 
 		assertKinds('false//hello', SyntaxKind.FalseKeyword, SyntaxKind.LineCommentTrivia);
 	});
@@ -289,7 +287,7 @@ suite('JSON', () => {
 
 		// JSON5 objects
 		assertValidParse('{ foo: "bar" }', { foo: 'bar' });
-		assertValidParse('{ foo: \'bar\', }', { foo: 'bar' }, { allowTrailingComma: true });
+		assertValidParse('{ foo: \'bar\', }', { foo: 'bar' });
 		assertValidParse('{ foo1: \'bar\', xoo: "foo" }', { foo1: 'bar', xoo: 'foo' });
 	});
 
@@ -301,8 +299,7 @@ suite('JSON', () => {
 	});
 
 	test('parse: objects with errors', () => {
-		assertInvalidParse('{,}', {});
-		assertInvalidParse('{ "foo": true, }', { foo: true });
+		assertInvalidParse('{,}', {});	
 		assertInvalidParse('{ "bar": 8 "xoo": "foo" }', { bar: 8, xoo: 'foo' });
 		assertInvalidParse('{ ,"bar": 8 }', { bar: 8 });
 		assertInvalidParse('{ ,"bar": 8, "foo" }', { bar: 8 });
@@ -322,28 +319,15 @@ suite('JSON', () => {
 		assertInvalidParse('1,1', 1);
 	});
 
-	test('parse: disallow comments', () => {
-		let options = { disallowComments: true };
-
-		assertValidParse('[ 1, 2, null, "foo" ]', [1, 2, null, 'foo'], options);
-		assertValidParse('{ "hello": [], "world": {} }', { hello: [], world: {} }, options);
-
-		assertInvalidParse('{ "foo": /*comment*/ true }', { foo: true }, options);
-	});
-
 	test('parse: trailing comma', () => {
-		let options = { allowTrailingComma: true };
-		assertValidParse('{ "hello": [], }', { hello: [] }, options);
-		assertValidParse('{ "hello": [] }', { hello: [] }, options);
-		assertValidParse('{ "hello": [], "world": {}, }', { hello: [], world: {} }, options);
-		assertValidParse('{ "hello": [], "world": {} }', { hello: [], world: {} }, options);
-		assertValidParse('[ 1, 2, ]', [1, 2], options);
-		assertValidParse('[ 1, 2 ]', [1, 2], options);
-
-		assertInvalidParse('{ "hello": [], }', { hello: [] });
-		assertInvalidParse('{ "hello": [], "world": {}, }', { hello: [], world: {} });
-		assertInvalidParse('[ 1, 2, ]', [1, 2]);
+		assertValidParse('{ "hello": [], }', { hello: [] });
+		assertValidParse('{ "hello": [] }', { hello: [] });
+		assertValidParse('{ "hello": [], "world": {}, }', { hello: [], world: {} });
+		assertValidParse('{ "hello": [], "world": {} }', { hello: [], world: {} });
+		assertValidParse('[ 1, 2, ]', [1, 2]);
+		assertValidParse('[ 1, 2 ]', [1, 2]);
 	});
+
 	test('location: properties', () => {
 		assertLocation('|{ "foo": "bar" }', [], void 0, false);
 		assertLocation('{| "foo": "bar" }', [''], void 0, true);
@@ -455,10 +439,7 @@ suite('JSON', () => {
 						]
 					}
 				]
-			}, [
-			{ error: ParseErrorCode.PropertyNameExpected, offset: 26, length: 1 },
-			{ error: ParseErrorCode.ValueExpected, offset: 26, length: 1 }
-		]);
+			});
 	});
 
 	test('visit: object', () => {
@@ -487,7 +468,7 @@ suite('JSON', () => {
 		assertVisit('{ "foo": "bar", "a": {"b": "c"} }', [
 			{ id: 'onObjectBegin', text: '{', startLine: 0, startCharacter: 0, path: [] },
 			{ id: 'onObjectEnd', text: '}', startLine: 0, startCharacter: 32 },
-		], [], false, [0]);
+		], [], [0]);
 		assertVisit('{ "a": { "b": "c", "d": { "e": "f" } } }', [
 			{ id: 'onObjectBegin', text: '{', startLine: 0, startCharacter: 0, path: [] },
 			{ id: 'onObjectProperty', text: '"a"', startLine: 0, startCharacter: 2, arg: 'a', path: [] },
@@ -495,7 +476,7 @@ suite('JSON', () => {
 			{ id: 'onObjectBegin', text: '{', startLine: 0, startCharacter: 7, path: ['a'] },
 			{ id: 'onObjectEnd', text: '}', startLine: 0, startCharacter: 37 },
 			{ id: 'onObjectEnd', text: '}', startLine: 0, startCharacter: 39 }
-		], [], true, [7]);
+		], [], [7]);
 	});
 
 	test('visit: array', () => {
@@ -559,7 +540,7 @@ suite('JSON', () => {
 			{ id: 'onArrayBegin', text: '[', startLine: 0, startCharacter: 9, path: ['foo'] },
 			{ id: 'onArrayEnd', text: ']', startLine: 0, startCharacter: 54 },
 			{ id: 'onObjectEnd', text: '}', startLine: 0, startCharacter: 56 }
-		], [], true, [9]);
+		], [], [9]);
 	});
 
 	test('visit: comment', () => {
@@ -581,20 +562,6 @@ suite('JSON', () => {
 			{ id: 'onLiteralValue', text: '"bar"', startLine: 2, startCharacter: 0, arg: 'bar', path: ['foo'] },
 			{ id: 'onObjectEnd', text: '}', startLine: 2, startCharacter: 6 },
 		]);
-		assertVisit('/* g\n */ { "foo": //f\n"bar"\n}',
-			[
-				{ id: 'onObjectBegin', text: '{', startLine: 1, startCharacter: 4, path: [] },
-				{ id: 'onObjectProperty', text: '"foo"', startLine: 1, startCharacter: 6, arg: 'foo', path: [] },
-				{ id: 'onSeparator', text: ':', startLine: 1, startCharacter: 11, arg: ':' },
-				{ id: 'onLiteralValue', text: '"bar"', startLine: 2, startCharacter: 0, arg: 'bar', path: ['foo'] },
-				{ id: 'onObjectEnd', text: '}', startLine: 3, startCharacter: 0 },
-			],
-			[
-				{ error: ParseErrorCode.InvalidCommentToken, offset: 0, length: 8, startLine: 0, startCharacter: 0 },
-				{ error: ParseErrorCode.InvalidCommentToken, offset: 18, length: 3, startLine: 1, startCharacter: 13 },
-			],
-			true
-		);
 	});
 
 	test('visit: malformed', () => {
