@@ -10,7 +10,7 @@ import { Range } from '../main';
 
 suite('JSON - formatter', () => {
 
-	function format(content: string, expected: string, insertSpaces = true, insertFinalNewline = false, keepLines = false) {
+	function format(content: string, expected: string, insertSpaces = true, insertFinalNewline = false, keepLines = false, keyQuotes: undefined | 'none-single' | 'none-double' | 'single' | 'double' = undefined, stringQuotes: undefined | 'single' | 'double' = undefined, trailingCommas: undefined | 'none' | 'all' = undefined): void {
 		let range: Range | undefined = void 0;
 		const rangeStart = content.indexOf('|');
 		const rangeEnd = content.lastIndexOf('|');
@@ -19,7 +19,7 @@ suite('JSON - formatter', () => {
 			range = { offset: rangeStart, length: rangeEnd - rangeStart };
 		}
 
-		const edits = Formatter.format(content, range, { tabSize: 2, insertSpaces, insertFinalNewline, eol: '\n', keepLines });
+		const edits = Formatter.format(content, range, { tabSize: 2, insertSpaces, insertFinalNewline, eol: '\n', keepLines, keyQuotes, stringQuotes, trailingCommas });
 
 		let lastEditOffset = content.length;
 
@@ -738,7 +738,7 @@ suite('JSON - formatter', () => {
 		format(content, expected, true, false, true);
 	});
 
-	test('JSON5 objects with comments', () => { // TODO: formalize all string keys
+	test('JSON5 objects with comments', () => {
 		const content = [
 			'{',
 			'// comment',
@@ -760,5 +760,199 @@ suite('JSON - formatter', () => {
 		].join('\n');
 
 		format(content, expected, true, false, true);
+	});
+
+	test('JSON5 key coercion to none-double', () => {
+		const content = [
+			'{',
+			'  "a": 1,',
+			'  "b" /*comment*/: 2,',
+			' "special key": 3,',
+			" '\\'quote': 4",
+			'}'
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  a: 1,',
+			'  b /*comment*/: 2,',
+			'  "special key": 3,',
+			'  "\'quote": 4',
+			'}'
+		].join('\n');
+
+		format(content, expected, true, false, true, 'none-double');
+	});
+
+	test('JSON5 key coercion to none-single', () => {
+		const content = [
+			'{',
+			'  "a": 1,',
+			'  "b" /*comment*/: 2,',
+			' "special key": 3,',
+			' "\\"quote": 4',
+			'}'
+		].join('\n');
+
+		const expected = [
+			"{",
+			"  a: 1,",
+			"  b /*comment*/: 2,",
+			"  'special key': 3,",
+			"  '\"quote': 4",
+			"}"
+		].join('\n');
+
+		format(content, expected, true, false, true, 'none-single');
+	});
+
+	test('JSON5 key coercion to single', () => {
+		const content = [
+			'{',
+			'  "a": 1,',
+			'  "b" /*comment*/: 2,',
+			'  "special key": 3,',
+			'  "\\"quote": 4',
+			'}'
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  \'a\': 1,',
+			'  \'b\' /*comment*/: 2,',
+			'  \'special key\': 3,',
+			'  \'\"quote\': 4',
+			'}'
+		].join('\n');
+
+		format(content, expected, true, false, true, 'single');
+	});
+
+	test('JSON5 key coercion to double', () => {
+		const content = [
+			'{',
+			'  "a": 1,',
+			'  "b" /*comment*/: 2,',
+			'  "special key": 3,',
+			'  "\'\\"quote": 4',
+			'}'
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  "a": 1,',
+			'  "b" /*comment*/: 2,',
+			'  "special key": 3,',
+			'  "\'\\"quote": 4',
+			'}'
+		].join('\n');
+
+		format(content, expected, true, false, true, 'double');
+	});
+
+	test('JSON5 string coercion to single', () => {
+		const content = [
+			'{',
+			'  "a": \'string content\' /*comment*/,',
+			'  \'b\': "awesome string",',
+			'}'
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  "a": \'string content\' /*comment*/,',
+			'  \'b\': \'awesome string\',',
+			'}'
+		].join('\n');
+
+		format(content, expected, true, false, true, undefined, 'single');
+	});
+
+	test('JSON5 string coercion to double', () => {
+		const content = [
+			'{',
+			'  "a": \'string content\' /*comment*/,',
+			'  \'b\': "awesome string",',
+			'}'
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  "a": "string content" /*comment*/,',
+			'  \'b\': "awesome string",',
+			'}'
+		].join('\n');
+
+		format(content, expected, true, false, true, undefined, 'double');
+	});
+
+	test('preserve mixed trailing comma', () => {
+		const content = [
+			'{',
+			'  "a": 1,',
+			'  "object": {',
+			'    "x": 1,',
+			'  },',
+			'  "array": [',
+			'    1,',
+			'  ] // mixed',
+			'}'
+		].join('\n');
+
+		const expected = content;
+
+		format(content, expected, true, false, true, undefined, undefined, undefined);
+	});
+
+	test('remove all trailing comma', () => {
+		const content = [
+			'{',
+			'  "array": [',
+			'		 1,',
+			'  ],',
+			'  "object": {',
+			'    "x": 1, // comment',
+			'    }, // here',
+			'}'
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  "array": [',
+			'    1',
+			'  ],',
+			'  "object": {',
+			'    "x": 1 // comment',
+			'  } // here',
+			'}'
+		].join('\n');
+
+		format(content, expected, true, false, true, undefined, undefined, 'none');
+	});
+
+	test('add trailing comma', () => {
+		const content = [
+			'{',
+			'  "array": [',
+			'    1',
+			'  ],',
+			'  "object": {',
+			'    "x": 1 // comment',
+			'    } // here',
+			'}'
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  "array": [',
+			'    1,',
+			'  ],',
+			'  "object": {',
+			'    "x": 1, // comment',
+			'  }, // here',
+			'}'
+		].join('\n');
+
+		format(content, expected, true, false, true, undefined, undefined, 'all');
 	});
 });

@@ -360,6 +360,18 @@ export interface FormattingOptions {
 	 * If true, will keep line positions as is in the formatting
 	 */
 	keepLines?: boolean;
+	/**
+	 * If set, will format object keys' quotation accordingly.
+	 */
+	keyQuotes?: 'none-double' | 'none-single' | 'double' | 'single';
+	/**
+	 * If set, will format string values' quotation accordingly.
+	 */
+	stringQuotes?: 'double' | 'single';
+	/**
+	 * If set, will format trailing commas accordingly.
+	 */
+	trailingCommas?: 'none' | 'all';
 }
 
 /**

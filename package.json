@@ -1,6 +1,6 @@
 {
   "name": "@blueglassblock/json5-kit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Scanner and parser for JSON5.",
   "main": "./lib/umd/main.js",
   "typings": "./lib/umd/main.d.ts",

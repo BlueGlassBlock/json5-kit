@@ -7,6 +7,7 @@
 import { Range, FormattingOptions, Edit, SyntaxKind, ScanError } from '../main';
 import { createScanner } from './scanner';
 import { cachedSpaces, cachedBreakLinesWithSpaces, supportedEols, SupportedEOL } from './string-intern';
+import * as unicode from './unicode';
 
 export function format(documentText: string, range: Range | undefined, options: FormattingOptions): Edit[] {
 	let initialIndentLevel: number;
@@ -99,15 +100,17 @@ export function format(documentText: string, range: Range | undefined, options: 
 
 	if (firstToken !== SyntaxKind.EOF) {
 		let firstTokenStart = scanner.getTokenOffset() + formatTextStart;
-		let initialIndent = (indentValue.length * initialIndentLevel < 20) && options.insertSpaces 
-			? cachedSpaces[indentValue.length * initialIndentLevel] 
+		let initialIndent = (indentValue.length * initialIndentLevel < 20) && options.insertSpaces
+			? cachedSpaces[indentValue.length * initialIndentLevel]
 			: repeat(indentValue, initialIndentLevel);
 		addEdit(initialIndent, formatTextStart, firstTokenStart);
 	}
 
 	while (firstToken !== SyntaxKind.EOF) {
-
-		let firstTokenEnd = scanner.getTokenOffset() + scanner.getTokenLength() + formatTextStart;
+		const firstTokenValue = scanner.getTokenValue();
+		const firstTokenStart = scanner.getTokenOffset() + formatTextStart;
+		const actualFirstTokenEnd = firstTokenStart + scanner.getTokenLength();
+		let firstTokenEnd = actualFirstTokenEnd;
 		let secondToken = scanNext();
 		let replaceContent = '';
 		let needsLineBreak = false;
@@ -123,6 +126,12 @@ export function format(documentText: string, range: Range | undefined, options: 
 
 		if (secondToken === SyntaxKind.CloseBraceToken) {
 			if (firstToken !== SyntaxKind.OpenBraceToken) { indentLevel--; };
+			if (options.trailingCommas === 'none' && firstToken === SyntaxKind.CommaToken) {
+				addEdit('', firstTokenStart, actualFirstTokenEnd);
+			}
+			else if (options.trailingCommas === 'all' && firstToken !== SyntaxKind.CommaToken) {
+				addEdit(',', actualFirstTokenEnd, actualFirstTokenEnd);
+			}
 
 			if (options.keepLines && numberLineBreaks > 0 || !options.keepLines && firstToken !== SyntaxKind.OpenBraceToken) {
 				replaceContent = newLinesAndIndent();
@@ -131,6 +140,12 @@ export function format(documentText: string, range: Range | undefined, options: 
 			}
 		} else if (secondToken === SyntaxKind.CloseBracketToken) {
 			if (firstToken !== SyntaxKind.OpenBracketToken) { indentLevel--; };
+			if (options.trailingCommas === 'none' && firstToken === SyntaxKind.CommaToken) {
+				addEdit('', firstTokenStart, firstTokenEnd);
+			}
+			else if (options.trailingCommas === 'all' && firstToken !== SyntaxKind.CommaToken) {
+				addEdit(',', firstTokenEnd, firstTokenEnd);
+			}
 
 			if (options.keepLines && numberLineBreaks > 0 || !options.keepLines && firstToken !== SyntaxKind.OpenBracketToken) {
 				replaceContent = newLinesAndIndent();
@@ -175,6 +190,11 @@ export function format(documentText: string, range: Range | undefined, options: 
 				case SyntaxKind.PossibleIdentifier:
 					if (secondToken !== SyntaxKind.ColonToken) {
 						hasError = true;
+					} else {
+						if (!hasError && options.keyQuotes) {
+							addEdit(formalizeString(firstTokenValue, documentText.substring(firstTokenStart, actualFirstTokenEnd).slice(1, -1),
+								options.keyQuotes), firstTokenStart, actualFirstTokenEnd);
+						}
 					}
 					break;
 				case SyntaxKind.StringLiteral:
@@ -183,7 +203,16 @@ export function format(documentText: string, range: Range | undefined, options: 
 					} else if (secondToken === SyntaxKind.ColonToken && !needsLineBreak) {
 						replaceContent = '';
 					}
-				
+					if (!hasError) {
+						if (secondToken === SyntaxKind.ColonToken) {
+							if (options.keyQuotes) {
+								addEdit(formalizeString(firstTokenValue, documentText.substring(firstTokenStart, actualFirstTokenEnd).slice(1, -1), options.keyQuotes), firstTokenStart, actualFirstTokenEnd);
+							}
+						}
+						else if (options.stringQuotes) {
+							addEdit(formalizeString(firstTokenValue, documentText.substring(firstTokenStart, actualFirstTokenEnd).slice(1, -1), options.stringQuotes), firstTokenStart, actualFirstTokenEnd);
+						}
+					}
 					break;
 				case SyntaxKind.NullKeyword:
 				case SyntaxKind.TrueKeyword:
@@ -266,4 +295,52 @@ function getEOL(options: FormattingOptions, text: string): string {
 
 export function isEOL(text: string, offset: number) {
 	return '\r\n'.indexOf(text.charAt(offset)) !== -1;
+}
+
+export function formalizeString(value: string, strippedContent: string, quotes: 'none-single' | 'none-double' | 'double' | 'single'): string {
+	const isSingle = quotes === 'single' || quotes === 'none-single';
+	const quote = isSingle ? '\'' : '"';
+	if (value.length === 0) {
+		return quote + quote;
+	}
+	const makeQuoted = () => {
+		const singleQuote = isSingle ? "\\'" : "'";
+		const doubleQuote = isSingle ? '"' : '\\"';
+		let result = "";
+		for (let i = 0; i < strippedContent.length; i++) {
+			const ch = strippedContent.charAt(i);
+			if (ch === "\\") {
+				const nextCh = strippedContent.charAt(++i);
+				if (nextCh === '"') {
+					result += doubleQuote;
+				}
+				else if (nextCh === "'") {
+					result += singleQuote;
+				}
+				else {
+					result += ch;
+					result += nextCh;
+				}
+			} else if (ch === '"') {
+				result += doubleQuote;
+			} else if (ch === "'") {
+				result += singleQuote;
+			} else {
+				result += ch;
+			}
+		}
+		return quote + result + quote;
+	};
+	if (quotes === 'none-single' || quotes === 'none-double') {
+		if (!unicode.ID_Start.test(value.charAt(0))) {
+			return makeQuoted();
+		}
+		for (const ch of value) {
+			if (!unicode.ID_Continue.test(ch)) {
+				return makeQuoted();
+			}
+		}
+		return value;
+	}
+	return makeQuoted();
 }
