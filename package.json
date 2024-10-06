@@ -1,6 +1,6 @@
 {
   "name": "@blueglassblock/json5-kit",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Scanner and parser for JSON5.",
   "main": "./lib/umd/main.js",
   "typings": "./lib/umd/main.d.ts",
@@ -32,9 +32,8 @@
     "typescript": "^5.4.2"
   },
   "scripts": {
-    "prepack": "npm run clean && npm run compile-esm && npm run test && npm run remove-sourcemap-refs",
-    "compile": "tsc -p ./src && npm run lint",
-    "compile-esm": "tsc -p ./src/tsconfig.esm.json",
+    "prepack": "npm run clean && npm run compile && npm run test && npm run remove-sourcemap-refs",
+    "compile": "tsc -p ./src && tsc -p ./src/tsconfig.esm.json && npm run lint",
     "remove-sourcemap-refs": "node ./build/remove-sourcemap-refs.js",
     "clean": "rimraf lib",
     "watch": "tsc -w -p ./src",

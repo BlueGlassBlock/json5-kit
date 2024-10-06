@@ -449,3 +449,5 @@ export function modify(text: string, path: JSONPath, value: any, options: Modifi
 	}
 	return text;
 }
+
+export const formalizeString = formatter.formalizeString;
