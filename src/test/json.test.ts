@@ -179,6 +179,10 @@ suite('JSON', () => {
 		// JSON5 Strings
 		assertKinds('\'foo\'', SyntaxKind.StringLiteral);
 		assertKinds('\'f\\\'oo\'', SyntaxKind.StringLiteral);
+		assertKinds("'f\\\noo'", SyntaxKind.StringLiteral);
+		assertKinds('"f\\\noo"', SyntaxKind.StringLiteral);
+		assertKinds("'f\\\r\noo\'", SyntaxKind.StringLiteral);
+		assertScanError("'f\\\n\noo'", ScanError.UnexpectedEndOfString, SyntaxKind.StringLiteral, SyntaxKind.LineBreakTrivia, SyntaxKind.Unknown);
 	});
 
 	test('numbers', () => {

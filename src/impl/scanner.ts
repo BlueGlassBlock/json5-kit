@@ -125,6 +125,15 @@ export function createScanner(text: string, ignoreTrivia: boolean = false): JSON
 				}
 				const ch2 = text.charCodeAt(pos++);
 				switch (ch2) {
+					case CharacterCodes.carriageReturn:
+						if (text.charCodeAt(pos) === CharacterCodes.lineFeed) {
+							pos++;
+						}
+						continue;
+					case CharacterCodes.lineFeed:
+					case CharacterCodes.lineSeparator:
+					case CharacterCodes.paragraphSeparator:
+						continue;
 					case CharacterCodes.singleQuote:
 						result += '\'';
 						break;
