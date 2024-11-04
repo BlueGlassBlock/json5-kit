@@ -206,7 +206,11 @@ export function format(documentText: string, range: Range | undefined, options: 
 					if (!hasError) {
 						if (secondToken === SyntaxKind.ColonToken) {
 							if (options.keyQuotes) {
-								addEdit(formalizeString(firstTokenValue, documentText.substring(firstTokenStart, actualFirstTokenEnd).slice(1, -1), options.keyQuotes), firstTokenStart, actualFirstTokenEnd);
+								let keyName = documentText.substring(firstTokenStart, actualFirstTokenEnd);
+								if (keyName.startsWith('"')) {
+									keyName = keyName.slice(1, -1)
+								}
+								addEdit(formalizeString(firstTokenValue, keyName, options.keyQuotes), firstTokenStart, actualFirstTokenEnd);
 							}
 						}
 						else if (options.stringQuotes) {
