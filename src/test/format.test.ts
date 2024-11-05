@@ -787,8 +787,8 @@ suite('JSON - formatter', () => {
 	test('JSON5 key coercion to none-single', () => {
 		const content = [
 			'{',
-			'  "a": 1,',
-			'  "b" /*comment*/: 2,',
+			'  a: 1,',
+			'  \'b\' /*comment*/: 2,',
 			' "special key": 3,',
 			' "\\"quote": 4',
 			'}'
@@ -809,9 +809,9 @@ suite('JSON - formatter', () => {
 	test('JSON5 key coercion to single', () => {
 		const content = [
 			'{',
-			'  "a": 1,',
+			'  a: 1,',
 			'  "b" /*comment*/: 2,',
-			'  "special key": 3,',
+			'  \'special key\': 3,',
 			'  "\\"quote": 4',
 			'}'
 		].join('\n');
@@ -831,8 +831,8 @@ suite('JSON - formatter', () => {
 	test('JSON5 key coercion to double', () => {
 		const content = [
 			'{',
-			'  "a": 1,',
-			'  "b" /*comment*/: 2,',
+			'  a: 1,',
+			'  \'b\' /*comment*/: 2,',
 			'  "special key": 3,',
 			'  "\'\\"quote": 4',
 			'}'
@@ -938,7 +938,10 @@ suite('JSON - formatter', () => {
 			'  ],',
 			'  "object": {',
 			'    "x": 1 // comment',
-			'    } // here',
+			'    }, // here',
+			'  "empty_array": [],',
+			'  "empty_object_with_return": {',
+			'  }',
 			'}'
 		].join('\n');
 
@@ -950,9 +953,11 @@ suite('JSON - formatter', () => {
 			'  "object": {',
 			'    "x": 1, // comment',
 			'  }, // here',
+			'  "empty_array": [],',
+			'  "empty_object_with_return": {},',
 			'}'
 		].join('\n');
 
-		format(content, expected, true, false, true, undefined, undefined, 'all');
+		format(content, expected, true, false, false, undefined, undefined, 'all');
 	});
 });

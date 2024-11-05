@@ -129,7 +129,7 @@ export function format(documentText: string, range: Range | undefined, options: 
 			if (options.trailingCommas === 'none' && firstToken === SyntaxKind.CommaToken) {
 				addEdit('', firstTokenStart, actualFirstTokenEnd);
 			}
-			else if (options.trailingCommas === 'all' && firstToken !== SyntaxKind.CommaToken) {
+			else if (options.trailingCommas === 'all' && firstToken !== SyntaxKind.CommaToken && firstToken !== SyntaxKind.OpenBraceToken) {
 				addEdit(',', actualFirstTokenEnd, actualFirstTokenEnd);
 			}
 
@@ -141,10 +141,10 @@ export function format(documentText: string, range: Range | undefined, options: 
 		} else if (secondToken === SyntaxKind.CloseBracketToken) {
 			if (firstToken !== SyntaxKind.OpenBracketToken) { indentLevel--; };
 			if (options.trailingCommas === 'none' && firstToken === SyntaxKind.CommaToken) {
-				addEdit('', firstTokenStart, firstTokenEnd);
+				addEdit('', firstTokenStart, actualFirstTokenEnd);
 			}
-			else if (options.trailingCommas === 'all' && firstToken !== SyntaxKind.CommaToken) {
-				addEdit(',', firstTokenEnd, firstTokenEnd);
+			else if (options.trailingCommas === 'all' && firstToken !== SyntaxKind.CommaToken && firstToken !== SyntaxKind.OpenBracketToken) {
+				addEdit(',', actualFirstTokenEnd, actualFirstTokenEnd);
 			}
 
 			if (options.keepLines && numberLineBreaks > 0 || !options.keepLines && firstToken !== SyntaxKind.OpenBracketToken) {
@@ -192,7 +192,7 @@ export function format(documentText: string, range: Range | undefined, options: 
 						hasError = true;
 					} else {
 						if (!hasError && options.keyQuotes) {
-							addEdit(formalizeString(firstTokenValue, documentText.substring(firstTokenStart, actualFirstTokenEnd).slice(1, -1),
+							addEdit(formalizeString(firstTokenValue, documentText.substring(firstTokenStart, actualFirstTokenEnd),
 								options.keyQuotes), firstTokenStart, actualFirstTokenEnd);
 						}
 					}
