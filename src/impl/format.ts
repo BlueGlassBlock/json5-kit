@@ -39,6 +39,10 @@ export function format(documentText: string, range: Range | undefined, options: 
 	const eol = getEOL(options, documentText);
 	const eolFastPathSupported = supportedEols.includes(eol as any);
 
+	const startIgnoreDirective = options.startIgnoreDirective || 'json5-fmt: off';
+	const endIgnoreDirective = options.endIgnoreDirective || 'json5-fmt: on';
+	let shouldIgnore = false;
+
 	let numberLineBreaks = 0;
 
 	let indentLevel = 0;
@@ -71,10 +75,23 @@ export function format(documentText: string, range: Range | undefined, options: 
 		return cachedBreakLinesWithSpaces[indentType][eol as SupportedEOL][amountOfSpaces];
 	}
 
+	function checkIgnoreToken(secondToken: SyntaxKind) {
+		if (secondToken !== SyntaxKind.LineCommentTrivia) {
+			return;
+		}
+		const value = scanner.getTokenValue();
+		const trimmed = value.trim().slice(2).trim();
+		if (trimmed === startIgnoreDirective) {
+			shouldIgnore = true;
+		}
+		else if (trimmed === endIgnoreDirective) {
+			shouldIgnore = false;
+		}
+	}
+
 	function scanNext(): SyntaxKind {
 		let token = scanner.scan();
 		numberLineBreaks = 0;
-
 		while (token === SyntaxKind.Trivia || token === SyntaxKind.LineBreakTrivia) {
 			if (token === SyntaxKind.LineBreakTrivia && options.keepLines) {
 				numberLineBreaks += 1;
@@ -88,8 +105,24 @@ export function format(documentText: string, range: Range | undefined, options: 
 	}
 	const editOperations: Edit[] = [];
 	function addEdit(text: string, startOffset: number, endOffset: number) {
-		if (!hasError && (!range || (startOffset < rangeEnd && endOffset > rangeStart)) && documentText.substring(startOffset, endOffset) !== text) {
+		if (!shouldIgnore && !hasError && (!range || (startOffset < rangeEnd && endOffset > rangeStart)) && documentText.substring(startOffset, endOffset) !== text) {
 			editOperations.push({ offset: startOffset, length: endOffset - startOffset, content: text });
+		}
+	}
+
+	let lastNonTriviaToken = SyntaxKind.EOF;
+	let lastNonTriviaTokenStart = 0;
+	let lastNonTriviaTokenEnd = 0;
+	let lastNonTriviaIgnore = false;
+
+	function handleTrailingComma(openToken: SyntaxKind) {
+		if (lastNonTriviaToken !== SyntaxKind.EOF && !lastNonTriviaIgnore) {
+			if (options.trailingCommas === 'none' && lastNonTriviaToken === SyntaxKind.CommaToken) {
+				addEdit('', lastNonTriviaTokenStart, lastNonTriviaTokenEnd);
+			}
+			else if (options.trailingCommas === 'all' && lastNonTriviaToken !== SyntaxKind.CommaToken && lastNonTriviaToken !== openToken) {
+				addEdit(',', lastNonTriviaTokenEnd, lastNonTriviaTokenEnd);
+			}
 		}
 	}
 
@@ -115,23 +148,28 @@ export function format(documentText: string, range: Range | undefined, options: 
 		let replaceContent = '';
 		let needsLineBreak = false;
 
+		if (firstToken !== SyntaxKind.LineBreakTrivia && firstToken !== SyntaxKind.LineCommentTrivia && firstToken !== SyntaxKind.BlockCommentTrivia && firstToken !== SyntaxKind.Trivia) {
+			lastNonTriviaToken = firstToken;
+			lastNonTriviaTokenStart = firstTokenStart;
+			lastNonTriviaTokenEnd = actualFirstTokenEnd;
+			lastNonTriviaIgnore = shouldIgnore;
+		}
+
+		checkIgnoreToken(secondToken);
+
 		while (numberLineBreaks === 0 && (secondToken === SyntaxKind.LineCommentTrivia || secondToken === SyntaxKind.BlockCommentTrivia)) {
 			let commentTokenStart = scanner.getTokenOffset() + formatTextStart;
 			addEdit(cachedSpaces[1], firstTokenEnd, commentTokenStart);
 			firstTokenEnd = scanner.getTokenOffset() + scanner.getTokenLength() + formatTextStart;
-			needsLineBreak = secondToken === SyntaxKind.LineCommentTrivia;
+			needsLineBreak = SyntaxKind.LineCommentTrivia === secondToken;
 			replaceContent = needsLineBreak ? newLinesAndIndent() : '';
 			secondToken = scanNext();
+			checkIgnoreToken(secondToken);
 		}
 
 		if (secondToken === SyntaxKind.CloseBraceToken) {
 			if (firstToken !== SyntaxKind.OpenBraceToken) { indentLevel--; };
-			if (options.trailingCommas === 'none' && firstToken === SyntaxKind.CommaToken) {
-				addEdit('', firstTokenStart, actualFirstTokenEnd);
-			}
-			else if (options.trailingCommas === 'all' && firstToken !== SyntaxKind.CommaToken && firstToken !== SyntaxKind.OpenBraceToken) {
-				addEdit(',', actualFirstTokenEnd, actualFirstTokenEnd);
-			}
+			handleTrailingComma(SyntaxKind.OpenBraceToken);
 
 			if (options.keepLines && numberLineBreaks > 0 || !options.keepLines && firstToken !== SyntaxKind.OpenBraceToken) {
 				replaceContent = newLinesAndIndent();
@@ -140,12 +178,7 @@ export function format(documentText: string, range: Range | undefined, options: 
 			}
 		} else if (secondToken === SyntaxKind.CloseBracketToken) {
 			if (firstToken !== SyntaxKind.OpenBracketToken) { indentLevel--; };
-			if (options.trailingCommas === 'none' && firstToken === SyntaxKind.CommaToken) {
-				addEdit('', firstTokenStart, actualFirstTokenEnd);
-			}
-			else if (options.trailingCommas === 'all' && firstToken !== SyntaxKind.CommaToken && firstToken !== SyntaxKind.OpenBracketToken) {
-				addEdit(',', actualFirstTokenEnd, actualFirstTokenEnd);
-			}
+			handleTrailingComma(SyntaxKind.OpenBracketToken);
 
 			if (options.keepLines && numberLineBreaks > 0 || !options.keepLines && firstToken !== SyntaxKind.OpenBracketToken) {
 				replaceContent = newLinesAndIndent();

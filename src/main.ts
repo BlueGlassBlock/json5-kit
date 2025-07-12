@@ -372,6 +372,15 @@ export interface FormattingOptions {
 	 * If set, will format trailing commas accordingly.
 	 */
 	trailingCommas?: 'none' | 'all';
+	/**
+	 * Indicates the start of a series of lines that should be ignored by the formatter.
+	 */
+	startIgnoreDirective?: string;
+	/**
+	 * Indicates the end of a series of lines that should be ignored by the formatter.
+	 */
+	endIgnoreDirective?: string;
+
 }
 
 /**

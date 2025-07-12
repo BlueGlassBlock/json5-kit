@@ -10,7 +10,7 @@ import { Range } from '../main';
 
 suite('JSON - formatter', () => {
 
-	function format(content: string, expected: string, insertSpaces = true, insertFinalNewline = false, keepLines = false, keyQuotes: undefined | 'none-single' | 'none-double' | 'single' | 'double' = undefined, stringQuotes: undefined | 'single' | 'double' = undefined, trailingCommas: undefined | 'none' | 'all' = undefined): void {
+	function format(content: string, expected: string, insertSpaces = true, insertFinalNewline = false, keepLines = false, keyQuotes: undefined | 'none-single' | 'none-double' | 'single' | 'double' = undefined, stringQuotes: undefined | 'single' | 'double' = undefined, trailingCommas: undefined | 'none' | 'all' = undefined, startIgnoreDirective?: string, endIgnoreDirective?: string): void {
 		let range: Range | undefined = void 0;
 		const rangeStart = content.indexOf('|');
 		const rangeEnd = content.lastIndexOf('|');
@@ -19,7 +19,7 @@ suite('JSON - formatter', () => {
 			range = { offset: rangeStart, length: rangeEnd - rangeStart };
 		}
 
-		const edits = Formatter.format(content, range, { tabSize: 2, insertSpaces, insertFinalNewline, eol: '\n', keepLines, keyQuotes, stringQuotes, trailingCommas });
+		const edits = Formatter.format(content, range, { tabSize: 2, insertSpaces, insertFinalNewline, eol: '\n', keepLines, keyQuotes, stringQuotes, trailingCommas, startIgnoreDirective, endIgnoreDirective });
 
 		let lastEditOffset = content.length;
 
@@ -956,6 +956,461 @@ suite('JSON - formatter', () => {
 			'  "empty_array": [],',
 			'  "empty_object_with_return": {},',
 			'}'
+		].join('\n');
+
+		format(content, expected, true, false, false, undefined, undefined, 'all');
+	});
+
+	test('ignore directive - default directives', () => {
+		const content = [
+			'{',
+			'  "a": 1,',
+			'  // json5-fmt: off',
+			'  "b"   :   2   ,',
+			'  "c"  :    3,',
+			'  // json5-fmt: on',
+			'  "d": 4',
+			'}'
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  "a": 1,',
+			'  // json5-fmt: off',
+			'  "b"   :   2   ,',
+			'  "c"  :    3,',
+			'  // json5-fmt: on',
+			'  "d": 4',
+			'}'
+		].join('\n');
+
+		format(content, expected);
+	});
+
+	test('ignore directive - custom directives', () => {
+		const content = [
+			'{',
+			'  "a": 1,',
+			'  // disable-format',
+			'  "b"   :   2   ,',
+			'  "c"  :    3,',
+			'  // enable-format',
+			'  "d":   4',
+			'}'
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  "a": 1,',
+			'  // disable-format',
+			'  "b"   :   2   ,',
+			'  "c"  :    3,',
+			'  // enable-format',
+			'  "d": 4',
+			'}'
+		].join('\n');
+
+		format(content, expected, true, false, false, undefined, undefined, undefined, 'disable-format', 'enable-format');
+	});
+
+	test('ignore directive - nested objects', () => {
+		const content = [
+			'{',
+			'  "outer": {',
+			'    "a": 1,',
+			'    // json5-fmt: off',
+			'    "nested"   :   {',
+			'      "b"  :  2  ,',
+			'      "c":3',
+			'    }   ,',
+			'    // json5-fmt: on',
+			'    "d": 4',
+			'  }',
+			'}'
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  "outer": {',
+			'    "a": 1,',
+			'    // json5-fmt: off',
+			'    "nested"   :   {',
+			'      "b"  :  2  ,',
+			'      "c":3',
+			'    }   ,',
+			'    // json5-fmt: on',
+			'    "d": 4',
+			'  }',
+			'}'
+		].join('\n');
+
+		format(content, expected);
+	});
+
+	test('ignore directive - arrays', () => {
+		const content = [
+			'{',
+			'  "array": [',
+			'    1,',
+			'    // json5-fmt: off',
+			'    2   ,   3,',
+			'    [4,5   ,6],',
+			'    // json5-fmt: on',
+			'    7',
+			'  ]',
+			'}'
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  "array": [',
+			'    1,',
+			'    // json5-fmt: off',
+			'    2   ,   3,',
+			'    [4,5   ,6],',
+			'    // json5-fmt: on',
+			'    7',
+			'  ]',
+			'}'
+		].join('\n');
+
+		format(content, expected);
+	});
+
+	test('ignore directive - multiple ignore blocks', () => {
+		const content = [
+			'{',
+			'  "a":  1,',
+			'  // json5-fmt: off',
+			'  "b"   :   2,',
+			'  // json5-fmt: on',
+			'  "c":  3,',
+			'  // json5-fmt: off',
+			'  "d"   :   4,',
+			'  // json5-fmt: on',
+			'  "e":  5',
+			'}'
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  "a": 1,',
+			'  // json5-fmt: off',
+			'  "b"   :   2,',
+			'  // json5-fmt: on',
+			'  "c": 3,',
+			'  // json5-fmt: off',
+			'  "d"   :   4,',
+			'  // json5-fmt: on',
+			'  "e": 5',
+			'}'
+		].join('\n');
+
+		format(content, expected);
+	});
+
+	test('ignore directive - ignore with trailing commas', () => {
+		const content = [
+			'{',
+			'  "a": 1,',
+			'  // json5-fmt: off',
+			'  "b": 2   ,',
+			'  "c": 3',
+			'  // json5-fmt: on',
+			'  "d": 4',
+			'}'
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  "a": 1,',
+			'  // json5-fmt: off',
+			'  "b": 2   ,',
+			'  "c": 3',
+			'  // json5-fmt: on',
+			'  "d": 4,',
+			'}'
+		].join('\n');
+
+		format(content, expected, true, false, false, undefined, undefined, 'all');
+	});
+
+	test('ignore directive - ignore with key quotes', () => {
+		const content = [
+			'{',
+			'  a: 1,',
+			'  // json5-fmt: off',
+			'  b   :   2,',
+			'  c: 3,',
+			'  // json5-fmt: on',
+			'  d: 4',
+			'}'
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  "a": 1,',
+			'  // json5-fmt: off',
+			'  b   :   2,',
+			'  c: 3,',
+			'  // json5-fmt: on',
+			'  "d": 4',
+			'}'
+		].join('\n');
+
+		format(content, expected, true, false, false, 'double');
+	});
+
+	test('ignore directive - ignore start only (remains ignored till end)', () => {
+		const content = [
+			'{',
+			'  "a": 1,',
+			'  // json5-fmt: off',
+			'  "b"   :   2,',
+			'  "c"  :    3,',
+			'  "d":4',
+			'}'
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  "a": 1,',
+			'  // json5-fmt: off',
+			'  "b"   :   2,',
+			'  "c"  :    3,',
+			'  "d":4',
+			'}'
+		].join('\n');
+
+		format(content, expected);
+	});
+
+	test('ignore directive - directive with extra whitespace', () => {
+		const content = [
+			'{',
+			'  "a": 1,',
+			'  //   json5-fmt: off   ',
+			'  "b"   :   2,',
+			'  //  json5-fmt: on  ',
+			'  "c":  3',
+			'}'
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  "a": 1,',
+			'  //   json5-fmt: off   ',
+			'  "b"   :   2,',
+			'  //  json5-fmt: on  ',
+			'  "c": 3',
+			'}'
+		].join('\n');
+
+		format(content, expected);
+	});
+
+	test('ignore directive - partial line comment directive', () => {
+		const content = [
+			'{',
+			'  "a": 1,',
+			'  // This is a comment with json5-fmt: off inside',
+			'  "b"   :   2,',
+			'  // Another comment with json5-fmt: on here',
+			'  "c":  3',
+			'}'
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  "a": 1,',
+			'  // This is a comment with json5-fmt: off inside',
+			'  "b": 2,',
+			'  // Another comment with json5-fmt: on here',
+			'  "c": 3',
+			'}'
+		].join('\n');
+
+		format(content, expected);
+	});
+
+	test('ignore directive - range formatting with ignore', () => {
+		const content = [
+			'{',
+			'  "a": 1,',
+			'  // json5-fmt: off',
+			'  |"b"   :   2,',
+			'  "c"  :    3,|',
+			'  // json5-fmt: on',
+			'  "d":   4',
+			'}'
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  "a": 1,',
+			'  // json5-fmt: off',
+			'  "b": 2,',
+			'  "c": 3,',
+			'  // json5-fmt: on',
+			'  "d":   4',
+			'}'
+		].join('\n');
+
+		format(content, expected);
+	});
+
+	test('ignore directive - block comments are not supported', () => {
+		const content = [
+			'{',
+			'  "a":  1,',
+			'  /* json5-fmt: off */',
+			'  "b"   :   2,',
+			'  /* json5-fmt: on */',
+			'  "c":  3',
+			'}'
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  "a": 1,',
+			'  /* json5-fmt: off */',
+			'  "b": 2,',
+			'  /* json5-fmt: on */',
+			'  "c": 3',
+			'}'
+		].join('\n');
+
+		format(content, expected);
+	});
+
+	test('multi-line string - preserve string literal and format rest', () => {
+		const content = [
+			'[',
+			'  // json5-fmt: off',
+			'"\\',
+			'Line1\\',
+			'Line2",',
+			'  // json5-fmt: on',
+			'  {"a":1}',
+			']',
+		].join('\n');
+
+		const expected = [
+			'[',
+			'  // json5-fmt: off',
+			'"\\',
+			'Line1\\',
+			'Line2",',
+			'  // json5-fmt: on',
+			'  {',
+			'    "a": 1',
+			'  }',
+			']',
+		].join('\n');
+
+		format(content, expected);
+	});
+
+	test('list ignore directive - custom directives inside array', () => {
+		const content = [
+			'[',
+			'  1,',
+			'2, // off',
+			'    3   , 4  ,',
+			'  // on',
+			'    5',
+			']',
+		].join('\n');
+
+		const expected = [
+			'[',
+			'  1,',
+			'  2, // off',
+			'    3   , 4  ,',
+			'  // on',
+			'  5',
+			']',
+		].join('\n');
+
+		format(content, expected, true, false, false, undefined, undefined, undefined, 'off', 'on');
+	});
+
+	test('ignore directive with trailing comma', () => {
+		const content = [
+			'{',
+			'  // json5-fmt: off',
+			'  "a": 1',
+			'  // json5-fmt: on',
+			'}',
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  // json5-fmt: off',
+			'  "a": 1',
+			'  // json5-fmt: on',
+			'}',
+		].join('\n');
+
+		format(content, expected, true, false, false, undefined, undefined, 'all');
+	});
+
+
+	test('ignore directive with trailing comma - rev', () => {
+		const content = [
+			'{',
+			'  // json5-fmt: off',
+			'  "a": 1,',
+			'  // json5-fmt: on',
+			'}',
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  // json5-fmt: off',
+			'  "a": 1,',
+			'  // json5-fmt: on',
+			'}',
+		].join('\n');
+
+		format(content, expected, true, false, false, undefined, undefined, 'none');
+	});
+
+	test('trailing comma with line comments - 1', () => {
+		const content = [
+			'{',
+			'  // a',
+			'  "a": 1,',
+			'  // b',
+			'}',
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  // a',
+			'  "a": 1',
+			'  // b',
+			'}',
+		].join('\n');
+
+		format(content, expected, true, false, false, undefined, undefined, 'none');
+	});
+
+	test('trailing comma with line comments - 2', () => {
+		const content = [
+			'{',
+			'  // a',
+			'  "a": 1',
+			'  // b',
+			'}',
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  // a',
+			'  "a": 1,',
+			'  // b',
+			'}',
 		].join('\n');
 
 		format(content, expected, true, false, false, undefined, undefined, 'all');
