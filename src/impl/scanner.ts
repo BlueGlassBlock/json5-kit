@@ -346,10 +346,11 @@ export function createScanner(text: string, ignoreTrivia: boolean = false): JSON
 
 			case CharacterCodes._0:
 				// 0 may lead to a hexadecimal number
+				let startPosHex = pos;
 				pos++;
 				if (text.charCodeAt(pos) === CharacterCodes.x || text.charCodeAt(pos) === CharacterCodes.X) {
 					value += '0';
-					value += String.fromCharCode(code);
+					value += String.fromCharCode(text.charCodeAt(pos));
 					pos++;
 					if (pos === len ||
 						!(isDigit(text.charCodeAt(pos)) ||
@@ -361,11 +362,12 @@ export function createScanner(text: string, ignoreTrivia: boolean = false): JSON
 						(isDigit(text.charCodeAt(pos))
 							|| (text.charCodeAt(pos) >= CharacterCodes.A && text.charCodeAt(pos) <= CharacterCodes.F)
 							|| (text.charCodeAt(pos) >= CharacterCodes.a && text.charCodeAt(pos) <= CharacterCodes.f))) {
+						value += String.fromCharCode(text.charCodeAt(pos));
 						pos++;
 					}
 					return token = SyntaxKind.NumericLiteral;
 				}
-				pos--; // Backtrace
+				pos = startPosHex; // Backtrace
 			case CharacterCodes._1:
 			case CharacterCodes._2:
 			case CharacterCodes._3:
