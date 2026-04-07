@@ -1,6 +1,6 @@
 {
   "name": "@blueglassblock/json5-kit",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Scanner and parser for JSON5.",
   "type": "module",
   "exports": {

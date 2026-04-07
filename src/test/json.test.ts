@@ -219,7 +219,7 @@ suite('JSON', () => {
 		assertKinds('NaN', SyntaxKind.NumericLiteral);
 		assertKinds('+NaN', SyntaxKind.NumericLiteral);
 		assertKinds('-NaN', SyntaxKind.NumericLiteral);
-		
+
 
 		// unexpected end
 		assertKinds('-', SyntaxKind.Unknown);
@@ -304,7 +304,7 @@ suite('JSON', () => {
 	});
 
 	test('parse: objects with errors', () => {
-		assertInvalidParse('{,}', {});	
+		assertInvalidParse('{,}', {});
 		assertInvalidParse('{ "bar": 8 "xoo": "foo" }', { bar: 8, xoo: 'foo' });
 		assertInvalidParse('{ ,"bar": 8 }', { bar: 8 });
 		assertInvalidParse('{ ,"bar": 8, "foo" }', { bar: 8 });
@@ -372,6 +372,7 @@ suite('JSON', () => {
 		assertTree('23', { type: 'number', offset: 0, length: 2, value: 23 });
 		assertTree('-1.93e-19', { type: 'number', offset: 0, length: 9, value: -1.93e-19 });
 		assertTree('"hello"', { type: 'string', offset: 0, length: 7, value: 'hello' });
+		assertTree('0x50', { type: 'number', offset: 0, length: 4, value: 0x50 });
 	});
 
 	test('tree: arrays', () => {
