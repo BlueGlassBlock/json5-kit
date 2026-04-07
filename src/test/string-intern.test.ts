@@ -1,5 +1,6 @@
-import { cachedBreakLinesWithSpaces, cachedSpaces, supportedEols } from '../impl/string-intern';
-import * as assert from 'assert';
+import * as assert from 'node:assert';
+import { suite, test } from 'node:test';
+import { cachedBreakLinesWithSpaces, cachedSpaces, supportedEols } from '../impl/string-intern.js';
 
 suite('string intern', () => {
   test('should correctly define spaces intern', () => {

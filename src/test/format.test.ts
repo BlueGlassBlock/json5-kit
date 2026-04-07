@@ -4,9 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as assert from 'assert';
-import * as Formatter from '../impl/format';
-import { Range } from '../main';
+import * as assert from 'node:assert';
+import { suite, test } from 'node:test';
+import * as Formatter from '../impl/format.js';
+import { Range } from '../main.js';
 
 suite('JSON - formatter', () => {
 
@@ -21,14 +22,8 @@ suite('JSON - formatter', () => {
 
 		const edits = Formatter.format(content, range, { tabSize: 2, insertSpaces, insertFinalNewline, eol: '\n', keepLines, keyQuotes, stringQuotes, trailingCommas, startIgnoreDirective, endIgnoreDirective });
 
-		let lastEditOffset = content.length;
-
 		for (let i = edits.length - 1; i >= 0; i--) {
 			const edit = edits[i];
-			// assert(edit.offset >= 0 && edit.length >= 0 && edit.offset + edit.length <= content.length);
-			// assert(typeof edit.content === 'string');
-			// assert(lastEditOffset >= edit.offset + edit.length); // make sure all edits are ordered
-			lastEditOffset = edit.offset;
 			content = content.substring(0, edit.offset) + edit.content + content.substring(edit.offset + edit.length);
 		}
 
@@ -821,7 +816,7 @@ suite('JSON - formatter', () => {
 			'  \'a\': 1,',
 			'  \'b\' /*comment*/: 2,',
 			'  \'special key\': 3,',
-			'  \'\"quote\': 4',
+			'  \'"quote\': 4',
 			'}'
 		].join('\n');
 

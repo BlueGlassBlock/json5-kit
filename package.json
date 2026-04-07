@@ -1,10 +1,15 @@
 {
   "name": "@blueglassblock/json5-kit",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Scanner and parser for JSON5.",
-  "main": "./lib/umd/main.js",
-  "typings": "./lib/umd/main.d.ts",
-  "module": "./lib/esm/main.js",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./lib/esm/main.d.ts",
+      "import": "./lib/esm/main.js"
+    }
+  },
+  "types": "./lib/esm/main.d.ts",
   "author": "Microsoft Corporation",
   "maintainers": [
     "Microsoft Corporation",
@@ -22,24 +27,20 @@
     "url": "https://github.com/blueglassblock/json5-kit/issues"
   },
   "devDependencies": {
-    "@types/mocha": "^10.0.7",
-    "@types/node": "^18.x",
-    "@typescript-eslint/eslint-plugin": "^7.13.1",
-    "@typescript-eslint/parser": "^7.13.1",
-    "eslint": "^8.57.0",
-    "mocha": "^10.4.0",
-    "rimraf": "^5.0.7",
-    "typescript": "^5.4.2"
+    "@types/node": "22.x",
+    "@typescript-eslint/eslint-plugin": "^8.35.1",
+    "@typescript-eslint/parser": "^8.35.1",
+    "eslint": "^9.30.0",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.8.3"
   },
   "scripts": {
     "prepack": "npm run clean && npm run compile && npm run test && npm run remove-sourcemap-refs",
-    "compile:umd": "tsc -p ./src",
-    "compile:esm": "tsc -p ./src/tsconfig.esm.json",
-    "compile": "npm run compile:umd && npm run compile:esm && npm run lint",
-    "remove-sourcemap-refs": "node ./build/remove-sourcemap-refs.js",
+    "compile": "tsc -p ./src && npm run lint",
+    "remove-sourcemap-refs": "node ./build/remove-sourcemap-refs.cjs",
     "clean": "rimraf lib",
     "watch": "tsc -w -p ./src",
-    "test": "npm run compile && mocha ./lib/umd/test",
+    "test": "npm run compile && node --enable-source-maps --test ./lib/esm/test/*.test.js",
     "lint": "eslint src/**/*.ts"
   }
 }

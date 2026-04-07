@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import { Range, FormattingOptions, Edit, SyntaxKind, ScanError } from '../main';
-import { createScanner } from './scanner';
-import { cachedSpaces, cachedBreakLinesWithSpaces, supportedEols, SupportedEOL } from './string-intern';
-import * as unicode from './unicode';
+import { Range, FormattingOptions, Edit, SyntaxKind, ScanError } from '../main.js';
+import { createScanner } from './scanner.js';
+import { cachedSpaces, cachedBreakLinesWithSpaces, supportedEols, SupportedEOL } from './string-intern.js';
+import * as unicode from './unicode.js';
 
 export function format(documentText: string, range: Range | undefined, options: FormattingOptions): Edit[] {
 	let initialIndentLevel: number;

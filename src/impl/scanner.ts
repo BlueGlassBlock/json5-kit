@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as unicode from './unicode';
-import { ScanError, SyntaxKind, JSONScanner } from '../main';
+import * as unicode from './unicode.js';
+import { ScanError, SyntaxKind, JSONScanner } from '../main.js';
 
 /**
  * Creates a JSON scanner on the given text.
@@ -138,7 +138,7 @@ export function createScanner(text: string, ignoreTrivia: boolean = false): JSON
 						result += '\'';
 						break;
 					case CharacterCodes.doubleQuote:
-						result += '\"';
+						result += '"';
 						break;
 					case CharacterCodes.backslash:
 						result += '\\';
@@ -161,12 +161,13 @@ export function createScanner(text: string, ignoreTrivia: boolean = false): JSON
 					case CharacterCodes.t:
 						result += '\t';
 						break;
-					case CharacterCodes.u:
-						const ch3 = scanHexDigits(4, true);
-						if (ch3 >= 0) {
-							result += String.fromCharCode(ch3);
-						} else {
-							scanError = ScanError.InvalidUnicode;
+					case CharacterCodes.u: {
+							const ch3 = scanHexDigits(4, true);
+							if (ch3 >= 0) {
+								result += String.fromCharCode(ch3);
+							} else {
+								scanError = ScanError.InvalidUnicode;
+							}
 						}
 						break;
 					default:
@@ -258,7 +259,7 @@ export function createScanner(text: string, ignoreTrivia: boolean = false): JSON
 				return token = SyntaxKind.StringLiteral;
 
 			// comments
-			case CharacterCodes.slash:
+			case CharacterCodes.slash: {
 				const start = pos - 1;
 				// Single-line comment
 				if (text.charCodeAt(pos + 1) === CharacterCodes.slash) {
@@ -314,6 +315,7 @@ export function createScanner(text: string, ignoreTrivia: boolean = false): JSON
 				value += String.fromCharCode(code);
 				pos++;
 				return token = SyntaxKind.Unknown;
+			}
 
 			// numbers
 			case CharacterCodes.plus:
@@ -340,10 +342,11 @@ export function createScanner(text: string, ignoreTrivia: boolean = false): JSON
 				else if (!isDigit(text.charCodeAt(pos)) && text.charCodeAt(pos) !== CharacterCodes.dot) {
 					return token = SyntaxKind.Unknown;
 				}
+			
 			// found a sign, followed by a number so
 			// we fall through to proceed with scanning
 			// numbers
-
+			// eslint-disable-next-line no-fallthrough
 			case CharacterCodes._0:
 				// 0 may lead to a hexadecimal number
 				pos++;
@@ -366,6 +369,7 @@ export function createScanner(text: string, ignoreTrivia: boolean = false): JSON
 					return token = SyntaxKind.NumericLiteral;
 				}
 				pos--; // Backtrace
+			// eslint-disable-next-line no-fallthrough
 			case CharacterCodes._1:
 			case CharacterCodes._2:
 			case CharacterCodes._3:
